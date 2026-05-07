@@ -1,0 +1,202 @@
+// Global state variables
+let applications = [];
+let currentRole = null;
+let currentUserEmail = '';
+
+// The URL of your backend server
+const API_URL = 'http://localhost:3000/api/applications';
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', () => {
+    fetchApplications(); // Load data from the server
+    renderInternships();
+});
+
+// --- DATA FETCHING (The "Backend" connection) ---
+
+// Get data from server
+async function fetchApplications() {
+    try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
+        
+        // Make sure data is actually an array before saving it
+        if (Array.isArray(data)) {
+            applications = data;
+        } else {
+            console.error("Server error or invalid data format:", data);
+            applications = []; // Keep it as an empty array if server fails
+        }
+        
+        renderUserApplications();
+        renderAdminApplications();
+    } catch (err) {
+        console.error("Could not fetch data from server. Make sure server.js is running and MongoDB is on!", err);
+        applications = []; // Default to empty array on network error
+    }
+}
+
+// Save new application to server
+async function saveApplication(newApp) {
+    await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newApp)
+    });
+    fetchApplications(); // Refresh local list
+}
+
+// Update status on server
+async function updateStatusOnServer(appId, newStatus) {
+    await fetch(`${API_URL}/${appId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+    });
+    fetchApplications(); // Refresh local list
+}
+
+// --- APP LOGIC ---
+
+function selectRole(role) {
+    if (role === 'student') {
+        const emailInput = document.getElementById('login-email').value;
+        if (!emailInput) {
+            alert("Please enter your email to continue.");
+            return;
+        }
+        currentUserEmail = emailInput;
+    }
+
+    currentRole = role;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'grid';
+    
+    const adminNav = document.getElementById('nav-admin');
+    const myAppsNav = document.getElementById('nav-my-applications');
+    
+    if (role === 'student') {
+        adminNav.style.display = 'none';
+        myAppsNav.style.display = 'block';
+        showSection('job-board');
+    } else {
+        adminNav.style.display = 'block';
+        myAppsNav.style.display = 'none';
+        showSection('admin');
+    }
+    renderUserApplications();
+    renderInternships(); // Re-render jobs to hide/show Apply button
+}
+
+function logout() {
+    currentRole = null;
+    currentUserEmail = '';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('main-app').style.display = 'none';
+}
+
+function showSection(sectionId) {
+    document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+    document.getElementById(sectionId).classList.add('active');
+    document.querySelectorAll('nav li').forEach(li => li.classList.remove('active'));
+    const navItem = document.getElementById(`nav-${sectionId}`);
+    if (navItem) navItem.classList.add('active');
+}
+
+// Mock Internships
+const internships = [
+    { id: 1, title: "Frontend Developer Intern", company: "TechNova Solutions", location: "Remote", type: "Full-time", description: "Looking for a UI/UX focused developer." },
+    { id: 2, title: "Marketing & Sales Intern", company: "Global Reach Media", location: "New York", type: "Part-time", description: "Learn about digital marketing." },
+    { id: 3, title: "Data Science Intern", company: "DataWise Analytics", location: "Hybrid", type: "Full-time", description: "Work with big data sets." }
+];
+
+function renderInternships() {
+    const list = document.getElementById('internship-list');
+    list.innerHTML = internships.map(job => `
+        <div class="card">
+            <div class="company">${job.company}</div>
+            <h3>${job.title}</h3>
+            <p style="color: #64748b; font-size: 0.875rem; margin-bottom: 1.5rem;">${job.description}</p>
+            ${currentRole === 'student' ? `<button class="btn btn-primary" onclick="openApplyModal(${job.id})">Apply Now</button>` : ''}
+        </div>
+    `).join('');
+}
+
+function openApplyModal(id) {
+    const job = internships.find(j => j.id === id);
+    document.getElementById('internship-id').value = job.id;
+    document.getElementById('modal-title').innerText = `Apply for ${job.title}`;
+    document.getElementById('modal-company').innerText = job.company;
+    document.getElementById('apply-modal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('apply-modal').style.display = 'none';
+    document.getElementById('application-form').reset();
+}
+
+document.getElementById('application-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const internshipId = parseInt(document.getElementById('internship-id').value);
+    const internship = internships.find(j => j.id === internshipId);
+    
+    const newApplication = {
+        appId: Date.now(),
+        internshipId: internshipId,
+        jobTitle: internship.title,
+        company: internship.company,
+        studentName: document.getElementById('student-name').value,
+        studentEmail: document.getElementById('student-email').value,
+        appliedDate: new Date().toLocaleDateString(),
+        status: 'applied'
+    };
+
+    saveApplication(newApplication);
+    closeModal();
+    alert('Application submitted!');
+    showSection('my-applications');
+});
+
+function renderUserApplications() {
+    const tbody = document.getElementById('applications-table-body');
+    const myApps = applications.filter(app => app.studentEmail === currentUserEmail);
+    if (myApps.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No applications found.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = myApps.map(app => `
+        <tr>
+            <td style="font-weight: 600;">${app.jobTitle}</td>
+            <td>${app.company}</td>
+            <td>${app.appliedDate}</td>
+            <td><span class="status-badge status-${app.status}">${app.status}</span></td>
+        </tr>
+    `).join('');
+}
+
+function renderAdminApplications() {
+    const tbody = document.getElementById('admin-table-body');
+    if (applications.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No applications.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = applications.map(app => `
+        <tr>
+            <td><b>${app.studentName}</b><br>${app.studentEmail}</td>
+            <td>${app.jobTitle}</td>
+            <td>${app.appliedDate}</td>
+            <td>
+                <select onchange="updateStatusOnServer(${app.appId}, this.value)">
+                    <option value="applied" ${app.status === 'applied' ? 'selected' : ''}>Applied</option>
+                    <option value="shortlisted" ${app.status === 'shortlisted' ? 'selected' : ''}>Shortlisted</option>
+                    <option value="rejected" ${app.status === 'rejected' ? 'selected' : ''}>Rejected</option>
+                </select>
+            </td>
+        </tr>
+    `).join('');
+}
+
+window.onclick = function(event) {
+    if (event.target == document.getElementById('apply-modal')) closeModal();
+}
