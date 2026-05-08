@@ -1,4 +1,4 @@
-let applications = [];
+let applications = []; 
 let currentRole = null;
 let currentUserEmail = '';
 
@@ -6,7 +6,7 @@ let currentUserEmail = '';
 const RECRUITER_EMAIL = 'recruiter@internpath.com';
 
 // backend server url
-const API_URL = 'http://localhost:3000/api/applications';
+const API_URL = 'http://localhost:3000/api/applications'; //frontend sends and receive data
 
 // initialize the page
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,14 +27,14 @@ async function fetchApplications() {
             applications = data;
         } else {
             console.error("Server error or invalid data format:", data);
-            applications = []; // Keep it as an empty array if server fails
+            applications = []; // keep it as an empty array if server fails
         }
         
         renderUserApplications();
         renderAdminApplications();
     } catch (err) {
-        console.error("Could not fetch data from server. Make sure server.js is running and MongoDB is on!", err);
-        applications = []; // Default to empty array on network error
+        console.error("could not fetch data from server", err);
+        applications = []; // default to empty array on network error
     }
 }
 
@@ -135,7 +135,9 @@ function renderInternships() {
         <div class="card">
             <div class="company">${job.company}</div>
             <h3>${job.title}</h3>
-            <p style="color: #64748b; font-size: 0.875rem; margin-bottom: 1.5rem;">${job.description}</p>
+            <p style="color: #64748b; font-size: 0.875rem; margin-bottom: 1.5rem;">
+                ${currentRole === 'student' ? job.description : `<b>Type:</b> ${job.type} | <b>Location:</b> ${job.location}`}
+            </p>
             ${currentRole === 'student' ? `<button class="btn btn-primary" onclick="openApplyModal(${job.id})">Apply Now</button>` : ''}
         </div>
     `).join('');
@@ -176,7 +178,7 @@ document.getElementById('application-form').addEventListener('submit', (e) => {
     showSection('my-applications');
 });
 
-function renderUserApplications() {
+function renderUserApplications() { // my application tab data
     const tbody = document.getElementById('applications-table-body');
     const myApps = applications.filter(app => app.studentEmail === currentUserEmail);
     if (myApps.length === 0) {
@@ -193,6 +195,7 @@ function renderUserApplications() {
     `).join('');
 }
 
+// recruiter view list
 function renderAdminApplications() {
     const tbody = document.getElementById('admin-table-body');
     if (applications.length === 0) {

@@ -16,7 +16,6 @@ mongoose.connect(mongoURI)
     .then(() => console.log('Connected to MongoDB Successfully!'))
     .catch(err => {
         console.error('Could not connect to MongoDB.');
-        console.error('If using Atlas, check your .env file. If local, make sure MongoDB is running.');
         console.error('Error:', err.message);
     });
 
