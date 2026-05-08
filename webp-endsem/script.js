@@ -1,6 +1,6 @@
 let applications = [];
 let currentRole = null;
-let currentUserEmail = '';
+let currentUserEmail = null;
 
 // recruiter email
 const RECRUITER_EMAIL = 'recruiter@internpath.com';
@@ -8,33 +8,31 @@ const RECRUITER_EMAIL = 'recruiter@internpath.com';
 // backend server url
 const API_URL = 'http://localhost:3000/api/applications';
 
-// initialize the page
-document.addEventListener('DOMContentLoaded', () => {
-    fetchApplications(); // Load data from the server
-    renderInternships();
+// init
+document.addEventListener('DOMContentLoaded', async () => {
+    await fetchApplications(); 
+    await renderInternships();
 });
 
-// --- data fetching (backend connection) ---
-
-// Get data from server
+// application fetch
 async function fetchApplications() {
     try {
         const response = await fetch(API_URL);
         const data = await response.json();
-        
-        // data in array 
+
+         
         if (Array.isArray(data)) {
             applications = data;
         } else {
             console.error("Server error or invalid data format:", data);
-            applications = []; // Keep it as an empty array if server fails
+            applications = []; 
         }
-        
+
         renderUserApplications();
         renderAdminApplications();
     } catch (err) {
         console.error("Could not fetch data from server. Make sure server.js is running and MongoDB is on!", err);
-        applications = []; // Default to empty array on network error
+        applications = []; 
     }
 }
 
@@ -48,17 +46,17 @@ async function saveApplication(newApp) {
     fetchApplications();
 }
 
-// Update status on server
+// Update status
 async function updateStatusOnServer(appId, newStatus) {
     await fetch(`${API_URL}/${appId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
     });
-    fetchApplications(); 
+    fetchApplications();
 }
 
-// --- site overview ---
+
 
 function selectRole(role) {
     if (role === 'student') {
@@ -88,10 +86,10 @@ function selectRole(role) {
     currentRole = role;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-app').style.display = 'grid';
-    
+
     const adminNav = document.getElementById('nav-admin');
     const myAppsNav = document.getElementById('nav-my-applications');
-    
+
     if (role === 'student') {
         adminNav.style.display = 'none';
         myAppsNav.style.display = 'block';
@@ -146,6 +144,7 @@ function openApplyModal(id) {
     document.getElementById('internship-id').value = job.id;
     document.getElementById('modal-title').innerText = `Apply for ${job.title}`;
     document.getElementById('modal-company').innerText = job.company;
+    document.getElementById('student-email').value = currentUserEmail;
     document.getElementById('apply-modal').style.display = 'flex';
 }
 
@@ -154,23 +153,38 @@ function closeModal() {
     document.getElementById('application-form').reset();
 }
 
-document.getElementById('application-form').addEventListener('submit', (e) => {
+document.getElementById('application-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const internshipId = parseInt(document.getElementById('internship-id').value);
     const internship = internships.find(j => j.id === internshipId);
-    
+
+    const studentName = document.getElementById('student-name').value.trim();
+    const studentEmail = document.getElementById('student-email').value.trim().toLowerCase();
+
+    const nameRegex = /^[A-Za-z ]{2,50}$/;
+
+    if (!nameRegex.test(studentName)) {
+        alert('Please enter a valid name.');
+        return;
+    }
+
+    if (!studentEmail.includes('@')) {
+        alert('Please enter a valid email.');
+        return;
+    }
+
     const newApplication = {
         appId: Date.now(),
         internshipId: internshipId,
         jobTitle: internship.title,
         company: internship.company,
-        studentName: document.getElementById('student-name').value,
-        studentEmail: document.getElementById('student-email').value,
+        studentName: studentName,
+        studentEmail: studentEmail,
         appliedDate: new Date().toLocaleDateString(),
         status: 'applied'
     };
 
-    saveApplication(newApplication);
+    await saveApplication(newApplication);
     closeModal();
     alert('Application submitted!');
     showSection('my-applications');
@@ -215,6 +229,6 @@ function renderAdminApplications() {
     `).join('');
 }
 
-window.onclick = function(event) {
+window.onclick = function (event) {
     if (event.target == document.getElementById('apply-modal')) closeModal();
 }
